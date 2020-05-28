@@ -164,8 +164,8 @@ describe('@proxy policy', () => {
     );
   });
 
-  describe('When errorAction is set', () => {
-    before(() => {
+  describe.only('When errorAction is set', () => {
+    const createGateway = (proxyOptions = {}) => {
       return gateway({
         config: {
           gatewayConfig: {
@@ -186,21 +186,43 @@ describe('@proxy policy', () => {
                 apiEndpoints: ['test'],
                 policies: [{
                   proxy: [{
-                    action: { serviceEndpoint: 'backend', errorAction: { message: 'Gateway Bad!', headers: { 'Content-Type': 'text/plain' } } }
+                    action: Object.assign({ serviceEndpoint: 'backend' }, proxyOptions)
                   }]
                 }]
               }
             }
           }
         }
-      }).then(apps => { app = apps.app; });
+      });
+    };
+
+    describe('with error message', () => {
+      before(() => {
+        return createGateway({
+          errorAction: { message: 'Gateway Bad!', headers: { 'Content-Type': 'text/plain' } }
+        }).then(apps => { app = apps.app; });
+      });
+
+      it('should return 502 with error message', () =>
+        request(app)
+          .get('/endpoint')
+          .expect(502, 'Gateway Bad!')
+      );
     });
 
-    it('should return 502 with error message', () =>
-      request(app)
-        .get('/endpoint')
-        .expect(502, 'Gateway Bad!')
-    );
+    describe('with status code', () => {
+      before(() => {
+        return createGateway({
+          errorAction: { statusCode: 503, message: 'oh no!' }
+        }).then(apps => { app = apps.app; });
+      });
+
+      it('should return 503', () =>
+        request(app)
+          .get('/endpoint')
+          .expect(503, 'oh no!')
+      );
+    });
   });
 
   describe('requestStream property', () => {
